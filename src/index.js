@@ -141,6 +141,27 @@ async function iniciar() {
       return;
     }
 
+    // .nombre <nuevo nombre> (SOLO owner) -> cambia el nombre del bot
+    if (cmd === PREFIJO + 'nombre' || cmd.startsWith(PREFIJO + 'nombre ')) {
+      if (!esOwner(remitente)) {
+        await sock.sendMessage(jid, { text: '🚫 Solo el owner puede usar este comando.' }, { quoted: m });
+        return;
+      }
+      const nuevoNombre = texto.trim().slice((PREFIJO + 'nombre').length).trim();
+      if (!nuevoNombre) {
+        await sock.sendMessage(jid, { text: 'Escribe el nombre así: *' + PREFIJO + 'nombre TuNuevoNombre* ✏️' }, { quoted: m });
+        return;
+      }
+      try {
+        await sock.updateProfileName(nuevoNombre);
+        await sock.sendMessage(jid, { text: '✅ Nombre cambiado a: ' + nuevoNombre }, { quoted: m });
+      } catch (e) {
+        console.error(e);
+        await sock.sendMessage(jid, { text: '❌ No pude cambiar el nombre: ' + (e?.message || 'error') }, { quoted: m });
+      }
+      return;
+    }
+
     // .foto (SOLO super owner)
     if (cmd === PREFIJO + 'foto') {
       if (!esOwner(remitente)) {
