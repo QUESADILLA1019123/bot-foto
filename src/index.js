@@ -69,6 +69,7 @@ async function iniciar() {
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
     browser: ['Ubuntu', 'Chrome', '120.0.0'],
+    syncFullHistory: true, // ayuda a recibir las claves de app-state (para .nombre)
   });
 
   reconectando = false; // hay una conexión activa nueva
