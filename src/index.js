@@ -183,11 +183,13 @@ async function iniciar() {
       try {
         // Verificar el número en WhatsApp para usar el JID correcto (arregla el "1" de México)
         const resultado = await sock.onWhatsApp(numeroDestino);
+        console.log('🔎 onWhatsApp(' + numeroDestino + ') ->', JSON.stringify(resultado));
         const info = resultado && resultado[0];
         if (!info || !info.exists) {
           await sock.sendMessage(jid, { text: '❌ Ese número no está en WhatsApp o el formato es incorrecto: ' + numeroDestino }, { quoted: m });
           return;
         }
+        console.log('📤 Enviando a JID:', info.jid);
         await sock.sendMessage(info.jid, { text: mensaje });
         await sock.sendMessage(jid, { text: '✅ Mensaje enviado a ' + numeroDestino }, { quoted: m });
       } catch (e) {
