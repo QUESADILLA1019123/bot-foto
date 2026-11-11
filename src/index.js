@@ -162,6 +162,35 @@ async function iniciar() {
       return;
     }
 
+    // .msj <numero> <texto> (SOLO owner) -> manda un mensaje a ese número
+    if (cmd === PREFIJO + 'msj' || cmd.startsWith(PREFIJO + 'msj ')) {
+      if (!esOwner(remitente)) {
+        await sock.sendMessage(jid, { text: '🚫 Solo el owner puede usar este comando.' }, { quoted: m });
+        return;
+      }
+      const resto = texto.trim().slice((PREFIJO + 'msj').length).trim();
+      const espacio = resto.indexOf(' ');
+      if (espacio === -1) {
+        await sock.sendMessage(jid, { text: 'Formato: *' + PREFIJO + 'msj 52XXXXXXXXXX tu mensaje* 📩' }, { quoted: m });
+        return;
+      }
+      const numeroDestino = soloDigitos(resto.slice(0, espacio));
+      const mensaje = resto.slice(espacio + 1).trim();
+      if (!numeroDestino || !mensaje) {
+        await sock.sendMessage(jid, { text: 'Formato: *' + PREFIJO + 'msj 52XXXXXXXXXX tu mensaje* 📩' }, { quoted: m });
+        return;
+      }
+      try {
+        const destinoJid = numeroDestino + '@s.whatsapp.net';
+        await sock.sendMessage(destinoJid, { text: mensaje });
+        await sock.sendMessage(jid, { text: '✅ Mensaje enviado a ' + numeroDestino }, { quoted: m });
+      } catch (e) {
+        console.error(e);
+        await sock.sendMessage(jid, { text: '❌ No pude enviar el mensaje: ' + (e?.message || 'error') }, { quoted: m });
+      }
+      return;
+    }
+
     // .foto (SOLO super owner)
     if (cmd === PREFIJO + 'foto') {
       if (!esOwner(remitente)) {
