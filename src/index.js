@@ -2,15 +2,19 @@
  * Bot de WhatsApp — cambia su PROPIA foto de perfil.
  * Login por código de 8 dígitos (pairing code), sin QR.
  *
- * Uso de comandos (escríbele al bot o en un grupo donde esté):
- *   .foto        -> responde a una imagen con este comando, o manda la imagen con ".foto" de texto
- *   .ping        -> responde "pong" (para probar que está vivo)
+ * El número del BOT se pide por CONSOLA al arrancar (no va en el código).
+ * Solo el SUPER OWNER puede usar .foto.
  *
- * Primer arranque:
+ * Comandos:
+ *   .foto   -> (solo owner) responde/manda una imagen y se la pone como foto de perfil
+ *   .ping   -> responde "pong" (para probar que está vivo)
+ *
+ * Arranque:
  *   1) npm install
- *   2) Edita NUMERO más abajo con tu número (con lada, sin + ni espacios). Ej: 521771xxxxxxx
- *   3) npm start  -> te mostrará un código de 8 dígitos
- *   4) WhatsApp > Dispositivos vinculados > Vincular dispositivo > Vincular con número > escribe el código
+ *   2) npm start
+ *   3) La consola te pedirá el número del bot -> escríbelo (lada, solo dígitos). Ej: 5218132546576
+ *   4) Te mostrará un código de 8 dígitos
+ *   5) WhatsApp (del bot) > Dispositivos vinculados > Vincular dispositivo > Vincular con número > mete el código
  */
 
 const {
@@ -20,11 +24,29 @@ const {
   downloadMediaMessage,
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
+const readline = require('readline');
 
 // === CONFIG ===
-const NUMERO = '521771XXXXXXX'; // <-- CAMBIA ESTO por tu número (lada incluida, solo dígitos)
 const PREFIJO = '.';
+// Super owner (quien manda). Se compara por los últimos 10 dígitos para
+// ignorar el "1" extra de México (52 vs 521).
+const SUPER_OWNER = '528132546576';
 // ==============
+
+// Pregunta por consola
+function preguntar(texto) {
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((res) => rl.question(texto, (r) => { rl.close(); res(r); }));
+}
+
+// Deja solo dígitos
+const soloDigitos = (s) => (s || '').replace(/\D/g, '');
+
+// ¿El remitente es el super owner? (compara últimos 10 dígitos)
+function esOwner(jid) {
+  const num = soloDigitos(jid.split('@')[0].split(':')[0]);
+  return num.slice(-10) === SUPER_OWNER.slice(-10);
+}
 
 async function iniciar() {
   const { state, saveCreds } = await useMultiFileAuthState('sesion');
@@ -36,19 +58,22 @@ async function iniciar() {
     browser: ['BotFoto', 'Chrome', '1.0.0'],
   });
 
-  // Pedir código de 8 dígitos si aún no está registrado
+  // Si no está registrado, pedir el número POR CONSOLA y generar el código
   if (!sock.authState.creds.registered) {
-    setTimeout(async () => {
-      try {
-        const codigo = await sock.requestPairingCode(NUMERO);
-        console.log('\n==============================');
-        console.log('  CÓDIGO DE VINCULACIÓN: ' + codigo);
-        console.log('==============================\n');
-        console.log('WhatsApp > Dispositivos vinculados > Vincular dispositivo > Vincular con número');
-      } catch (e) {
-        console.error('No se pudo pedir el código:', e?.message || e);
-      }
-    }, 3000);
+    let numero = soloDigitos(await preguntar('\n📱 Escribe el NÚMERO DEL BOT (lada, solo dígitos): '));
+    if (!numero) {
+      console.error('❌ No escribiste número. Reinicia e intenta de nuevo.');
+      process.exit(1);
+    }
+    try {
+      const codigo = await sock.requestPairingCode(numero);
+      console.log('\n==============================');
+      console.log('  CÓDIGO DE VINCULACIÓN: ' + codigo);
+      console.log('==============================\n');
+      console.log('En el WhatsApp del bot: Dispositivos vinculados > Vincular dispositivo > Vincular con número');
+    } catch (e) {
+      console.error('No se pudo pedir el código:', e?.message || e);
+    }
   }
 
   sock.ev.on('creds.update', saveCreds);
@@ -69,6 +94,9 @@ async function iniciar() {
     if (!m || !m.message || m.key.fromMe) return;
 
     const jid = m.key.remoteJid;
+    // Quién mandó el mensaje (en grupo es participant; en privado es el jid)
+    const remitente = m.key.participant || jid;
+
     const texto =
       m.message.conversation ||
       m.message.extendedTextMessage?.text ||
@@ -76,37 +104,32 @@ async function iniciar() {
       '';
     const cmd = texto.trim().toLowerCase();
 
-    // .ping
+    // .ping (abierto a todos)
     if (cmd === PREFIJO + 'ping') {
       await sock.sendMessage(jid, { text: 'pong 🏓' }, { quoted: m });
       return;
     }
 
-    // .foto  (cambia la foto del propio bot)
+    // .foto (SOLO super owner)
     if (cmd === PREFIJO + 'foto') {
-      // Buscar la imagen: en el propio mensaje o en el mensaje citado
+      if (!esOwner(remitente)) {
+        await sock.sendMessage(jid, { text: '🚫 Solo el owner puede usar este comando.' }, { quoted: m });
+        return;
+      }
+
       const img =
         m.message.imageMessage ||
         m.message.extendedTextMessage?.contextInfo?.quotedMessage?.imageMessage;
 
       if (!img) {
-        await sock.sendMessage(
-          jid,
-          { text: 'Mándame o cita una *imagen* con el comando .foto 📸' },
-          { quoted: m }
-        );
+        await sock.sendMessage(jid, { text: 'Mándame o cita una *imagen* con el comando .foto 📸' }, { quoted: m });
         return;
       }
 
       try {
-        // Reconstruir un mensaje válido para descargar el media
         const msgParaDescargar = m.message.imageMessage
           ? m
-          : {
-              key: m.key,
-              message:
-                m.message.extendedTextMessage.contextInfo.quotedMessage,
-            };
+          : { key: m.key, message: m.message.extendedTextMessage.contextInfo.quotedMessage };
 
         const buffer = await downloadMediaMessage(
           msgParaDescargar,
@@ -121,11 +144,7 @@ async function iniciar() {
         await sock.sendMessage(jid, { text: '✅ Foto de perfil actualizada.' }, { quoted: m });
       } catch (e) {
         console.error(e);
-        await sock.sendMessage(
-          jid,
-          { text: '❌ No pude cambiar la foto: ' + (e?.message || 'error') },
-          { quoted: m }
-        );
+        await sock.sendMessage(jid, { text: '❌ No pude cambiar la foto: ' + (e?.message || 'error') }, { quoted: m });
       }
     }
   });
