@@ -22,6 +22,7 @@ const {
   useMultiFileAuthState,
   DisconnectReason,
   downloadMediaMessage,
+  fetchLatestBaileysVersion,
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const readline = require('readline');
@@ -51,11 +52,16 @@ function esOwner(jid) {
 async function iniciar() {
   const { state, saveCreds } = await useMultiFileAuthState('sesion');
 
+  // Usar la versión ACTUAL de WhatsApp Web (clave para que el emparejamiento no falle)
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  console.log('📦 WhatsApp Web version ' + version.join('.') + ' (actual: ' + isLatest + ')');
+
   const sock = makeWASocket({
+    version,
     auth: state,
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
-    browser: ['BotFoto', 'Chrome', '1.0.0'],
+    browser: ['Ubuntu', 'Chrome', '120.0.0'],
   });
 
   // Si no está registrado, pedir el número POR CONSOLA y generar el código
@@ -65,6 +71,8 @@ async function iniciar() {
       console.error('❌ No escribiste número. Reinicia e intenta de nuevo.');
       process.exit(1);
     }
+    // Pequeña espera para que el socket esté listo antes de pedir el código
+    await new Promise((r) => setTimeout(r, 2000));
     try {
       const codigo = await sock.requestPairingCode(numero);
       console.log('\n==============================');
