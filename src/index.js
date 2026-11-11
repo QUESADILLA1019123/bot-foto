@@ -95,9 +95,18 @@ async function iniciar() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('connection.update', (u) => {
+  sock.ev.on('connection.update', async (u) => {
     const { connection, lastDisconnect } = u;
-    if (connection === 'open') console.log('✅ Bot conectado.');
+    if (connection === 'open') {
+      console.log('✅ Bot conectado.');
+      // Sincronizar app-state para que .nombre funcione (si las claves ya llegaron)
+      try {
+        await sock.resyncAppState(['critical_block', 'critical_unblock_low', 'regular_high', 'regular_low', 'regular'], true);
+        console.log('🔁 App-state sincronizado.');
+      } catch (e) {
+        console.log('ℹ️ App-state aún no listo (normal en sesión nueva).');
+      }
+    }
     if (connection === 'close') {
       // Si ya estamos reconectando, ignorar (evita que se encimen conexiones)
       if (reconectando) return;
@@ -170,7 +179,16 @@ async function iniciar() {
         await sock.sendMessage(jid, { text: '✅ Nombre cambiado a: ' + nuevoNombre }, { quoted: m });
       } catch (e) {
         console.error(e);
-        await sock.sendMessage(jid, { text: '❌ No pude cambiar el nombre: ' + (e?.message || 'error') }, { quoted: m });
+        const msgErr = (e?.message || '').toLowerCase();
+        if (msgErr.includes('app state') || msgErr.includes('key not present')) {
+          await sock.sendMessage(
+            jid,
+            { text: '⏳ Aún no puedo cambiar el nombre: la sesión se está sincronizando con WhatsApp. Espera ~1 minuto desde que se conectó y vuelve a intentar.' },
+            { quoted: m }
+          );
+        } else {
+          await sock.sendMessage(jid, { text: '❌ No pude cambiar el nombre: ' + (e?.message || 'error') }, { quoted: m });
+        }
       }
       return;
     }
