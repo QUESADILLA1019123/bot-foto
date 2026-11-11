@@ -112,9 +112,23 @@ async function iniciar() {
       '';
     const cmd = texto.trim().toLowerCase();
 
+    // Log en consola de QUIÉN manda cada mensaje (para depurar el owner)
+    console.log('📨 mensaje de:', remitente, '| jid:', jid, '| texto:', texto);
+
     // .ping (abierto a todos)
     if (cmd === PREFIJO + 'ping') {
       await sock.sendMessage(jid, { text: 'pong 🏓' }, { quoted: m });
+      return;
+    }
+
+    // .id (abierto a todos) -> dice el ID exacto que ve el bot
+    if (cmd === PREFIJO + 'id') {
+      const num = soloDigitos(remitente.split('@')[0].split(':')[0]);
+      await sock.sendMessage(
+        jid,
+        { text: '🆔 Tu ID: ' + remitente + '\n🔢 Dígitos: ' + num + '\n👑 ¿Eres owner?: ' + (esOwner(remitente) ? 'Sí' : 'No') },
+        { quoted: m }
+      );
       return;
     }
 
