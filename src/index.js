@@ -54,6 +54,8 @@ function esOwner(jid) {
   return OWNERS.some((o) => num === o || (o.length >= 10 && num.slice(-10) === o.slice(-10)));
 }
 
+let reconectando = false; // evita que se encimen varias conexiones
+
 async function iniciar() {
   const { state, saveCreds } = await useMultiFileAuthState('sesion');
 
@@ -68,6 +70,8 @@ async function iniciar() {
     printQRInTerminal: false,
     browser: ['Ubuntu', 'Chrome', '120.0.0'],
   });
+
+  reconectando = false; // hay una conexión activa nueva
 
   // Si no está registrado, pedir el número POR CONSOLA y generar el código
   if (!sock.authState.creds.registered) {
@@ -95,14 +99,23 @@ async function iniciar() {
     const { connection, lastDisconnect } = u;
     if (connection === 'open') console.log('✅ Bot conectado.');
     if (connection === 'close') {
+      // Si ya estamos reconectando, ignorar (evita que se encimen conexiones)
+      if (reconectando) return;
+      reconectando = true;
+
+      // Cerrar y limpiar ESTA conexión antes de abrir otra
+      try { sock.ev.removeAllListeners(); } catch (e) {}
+      try { sock.ws && sock.ws.close(); } catch (e) {}
+
       const code = lastDisconnect?.error?.output?.statusCode;
       if (code === DisconnectReason.loggedOut) {
-        console.log('🔒 Sesión cerrada por WhatsApp (logout). Borro la sesión y pido vincular de nuevo...');
+        console.log('🔒 Sesión cerrada por WhatsApp (logout). Borro la sesión; hay que vincular de nuevo.');
         try { fs.rmSync('sesion', { recursive: true, force: true }); } catch (e) {}
-        return iniciar(); // volverá a pedir número + código nuevo
+        setTimeout(iniciar, 5000);
+        return;
       }
-      console.log('⚠️ Conexión cerrada. Reintentando conectar...');
-      setTimeout(iniciar, 2000);
+      console.log('🔄 Conexión cerrada, reintentando en 5s (una sola vez)...');
+      setTimeout(iniciar, 5000);
     }
   });
 
