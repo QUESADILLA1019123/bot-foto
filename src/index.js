@@ -147,6 +147,27 @@ async function iniciar() {
     // Log en consola de QUIÉN manda cada mensaje (para depurar el owner)
     console.log('📨 mensaje de:', remitente, '| jid:', jid, '| texto:', texto);
 
+    // .menu (abierto a todos) -> lista de comandos
+    if (cmd === PREFIJO + 'menu' || cmd === PREFIJO + 'ayuda' || cmd === PREFIJO + 'help') {
+      const menu =
+        '╭─⌈ 🤖 *MENÚ DEL BOT* ⌋\n' +
+        '│\n' +
+        '│ ▸ *' + PREFIJO + 'ping* — probar si está vivo\n' +
+        '│ ▸ *' + PREFIJO + 'id* — ver tu ID\n' +
+        '│ ▸ *' + PREFIJO + 'menu* — este menú\n' +
+        '│\n' +
+        '│ 👑 *Solo owner:*\n' +
+        '│ ▸ *' + PREFIJO + 'foto* — cambiar la foto (con imagen)\n' +
+        '│ ▸ *' + PREFIJO + 'nombre <texto>* — cambiar el nombre\n' +
+        '│ ▸ *' + PREFIJO + 'estado <texto>* — cambiar el info/estado\n' +
+        '│ ▸ *' + PREFIJO + 'msj <número> <texto>* — enviar mensaje\n' +
+        '│ ▸ *' + PREFIJO + 'block <número>* — bloquear un número\n' +
+        '│ ▸ *' + PREFIJO + 'unblock <número>* — desbloquear\n' +
+        '╰───────────────';
+      await sock.sendMessage(jid, { text: menu }, { quoted: m });
+      return;
+    }
+
     // .ping (abierto a todos)
     if (cmd === PREFIJO + 'ping') {
       await sock.sendMessage(jid, { text: 'pong 🏓' }, { quoted: m });
@@ -190,6 +211,63 @@ async function iniciar() {
         } else {
           await sock.sendMessage(jid, { text: '❌ No pude cambiar el nombre: ' + (e?.message || 'error') }, { quoted: m });
         }
+      }
+      return;
+    }
+
+    // .estado <texto> (SOLO owner) -> cambia el info/estado del bot
+    if (cmd === PREFIJO + 'estado' || cmd.startsWith(PREFIJO + 'estado ')) {
+      if (!esOwner(remitente)) {
+        await sock.sendMessage(jid, { text: '🚫 Solo el owner puede usar este comando.' }, { quoted: m });
+        return;
+      }
+      const nuevoEstado = texto.trim().slice((PREFIJO + 'estado').length).trim();
+      if (!nuevoEstado) {
+        await sock.sendMessage(jid, { text: 'Escribe el estado así: *' + PREFIJO + 'estado Tu texto aquí* 📝' }, { quoted: m });
+        return;
+      }
+      try {
+        await sock.updateProfileStatus(nuevoEstado);
+        await sock.sendMessage(jid, { text: '✅ Estado cambiado a: ' + nuevoEstado }, { quoted: m });
+      } catch (e) {
+        console.error(e);
+        await sock.sendMessage(jid, { text: '❌ No pude cambiar el estado: ' + (e?.message || 'error') }, { quoted: m });
+      }
+      return;
+    }
+
+    // .block <numero> / .unblock <numero> (SOLO owner)
+    if (
+      cmd === PREFIJO + 'block' || cmd.startsWith(PREFIJO + 'block ') ||
+      cmd === PREFIJO + 'unblock' || cmd.startsWith(PREFIJO + 'unblock ')
+    ) {
+      if (!esOwner(remitente)) {
+        await sock.sendMessage(jid, { text: '🚫 Solo el owner puede usar este comando.' }, { quoted: m });
+        return;
+      }
+      const esBloqueo = cmd.startsWith(PREFIJO + 'block');
+      const palabra = esBloqueo ? 'block' : 'unblock';
+      const numeroBloq = soloDigitos(texto.trim().slice((PREFIJO + palabra).length).trim());
+      if (!numeroBloq) {
+        await sock.sendMessage(jid, { text: 'Formato: *' + PREFIJO + palabra + ' 52XXXXXXXXXX* 🚫' }, { quoted: m });
+        return;
+      }
+      try {
+        const res = await sock.onWhatsApp(numeroBloq);
+        const info = res && res[0];
+        if (!info || !info.exists) {
+          await sock.sendMessage(jid, { text: '❌ Ese número no está en WhatsApp: ' + numeroBloq }, { quoted: m });
+          return;
+        }
+        await sock.updateBlockStatus(info.jid, esBloqueo ? 'block' : 'unblock');
+        await sock.sendMessage(
+          jid,
+          { text: (esBloqueo ? '🚫 Número bloqueado: ' : '✅ Número desbloqueado: ') + numeroBloq },
+          { quoted: m }
+        );
+      } catch (e) {
+        console.error(e);
+        await sock.sendMessage(jid, { text: '❌ No pude ' + (esBloqueo ? 'bloquear' : 'desbloquear') + ': ' + (e?.message || 'error') }, { quoted: m });
       }
       return;
     }
