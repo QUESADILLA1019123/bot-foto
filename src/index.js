@@ -260,7 +260,10 @@ async function iniciar() {
           await sock.sendMessage(jid, { text: '❌ Ese número no está en WhatsApp: ' + numeroBloq }, { quoted: m });
           return;
         }
-        await sock.updateBlockStatus(info.jid, esBloqueo ? 'block' : 'unblock');
+        console.log('🔎 block onWhatsApp ->', JSON.stringify(res));
+        // Para bloquear, WhatsApp espera el jid tipo numero@s.whatsapp.net
+        const jidBloq = numeroBloq + '@s.whatsapp.net';
+        await sock.updateBlockStatus(jidBloq, esBloqueo ? 'block' : 'unblock');
         await sock.sendMessage(
           jid,
           { text: (esBloqueo ? '🚫 Número bloqueado: ' : '✅ Número desbloqueado: ') + numeroBloq },
