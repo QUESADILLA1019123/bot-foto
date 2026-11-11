@@ -1,0 +1,15 @@
+{
+  "name": "bot-foto",
+  "version": "1.0.0",
+  "description": "Bot de WhatsApp que cambia su propia foto de perfil (login por código de 8 dígitos)",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "demo": "node demo.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.0",
+    "pino": "^9.0.0"
+  }
+}

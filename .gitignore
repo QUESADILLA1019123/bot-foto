@@ -1,0 +1,9 @@
+# Dependencias
+node_modules/
+
+# Sesión de WhatsApp (NUNCA subir: contiene las credenciales de tu cuenta)
+sesion/
+
+# Logs y temporales
+*.log
+.DS_Store
