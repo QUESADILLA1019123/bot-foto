@@ -181,8 +181,14 @@ async function iniciar() {
         return;
       }
       try {
-        const destinoJid = numeroDestino + '@s.whatsapp.net';
-        await sock.sendMessage(destinoJid, { text: mensaje });
+        // Verificar el número en WhatsApp para usar el JID correcto (arregla el "1" de México)
+        const resultado = await sock.onWhatsApp(numeroDestino);
+        const info = resultado && resultado[0];
+        if (!info || !info.exists) {
+          await sock.sendMessage(jid, { text: '❌ Ese número no está en WhatsApp o el formato es incorrecto: ' + numeroDestino }, { quoted: m });
+          return;
+        }
+        await sock.sendMessage(info.jid, { text: mensaje });
         await sock.sendMessage(jid, { text: '✅ Mensaje enviado a ' + numeroDestino }, { quoted: m });
       } catch (e) {
         console.error(e);
