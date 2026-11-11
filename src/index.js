@@ -29,9 +29,13 @@ const readline = require('readline');
 
 // === CONFIG ===
 const PREFIJO = '.';
-// Super owner (quien manda). Se compara por los últimos 10 dígitos para
-// ignorar el "1" extra de México (52 vs 521).
-const SUPER_OWNER = '528132546576';
+// Owners autorizados. Pueden ser:
+//  - un LID de WhatsApp (lo que da el comando .id, ej: 27828066234368)
+//  - o un número normal (ej: 528132546576) -> se compara por los últimos 10 dígitos
+// Para agregar más owners, añade su ID/numero a esta lista.
+const OWNERS = [
+  '27828066234368', // LID del owner (+52 81 3254 6576), obtenido con .id
+];
 // ==============
 
 // Pregunta por consola
@@ -43,10 +47,10 @@ function preguntar(texto) {
 // Deja solo dígitos
 const soloDigitos = (s) => (s || '').replace(/\D/g, '');
 
-// ¿El remitente es el super owner? (compara últimos 10 dígitos)
+// ¿El remitente es owner? Acepta LID exacto o número por últimos 10 dígitos.
 function esOwner(jid) {
   const num = soloDigitos(jid.split('@')[0].split(':')[0]);
-  return num.slice(-10) === SUPER_OWNER.slice(-10);
+  return OWNERS.some((o) => num === o || (o.length >= 10 && num.slice(-10) === o.slice(-10)));
 }
 
 async function iniciar() {
