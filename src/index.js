@@ -26,6 +26,7 @@ const {
 } = require('@whiskeysockets/baileys');
 const pino = require('pino');
 const readline = require('readline');
+const fs = require('fs');
 
 // === CONFIG ===
 const PREFIJO = '.';
@@ -95,9 +96,13 @@ async function iniciar() {
     if (connection === 'open') console.log('✅ Bot conectado.');
     if (connection === 'close') {
       const code = lastDisconnect?.error?.output?.statusCode;
-      const reconectar = code !== DisconnectReason.loggedOut;
-      console.log('⚠️ Conexión cerrada. Reconectar:', reconectar);
-      if (reconectar) iniciar();
+      if (code === DisconnectReason.loggedOut) {
+        console.log('🔒 Sesión cerrada por WhatsApp (logout). Borro la sesión y pido vincular de nuevo...');
+        try { fs.rmSync('sesion', { recursive: true, force: true }); } catch (e) {}
+        return iniciar(); // volverá a pedir número + código nuevo
+      }
+      console.log('⚠️ Conexión cerrada. Reintentando conectar...');
+      setTimeout(iniciar, 2000);
     }
   });
 
