@@ -161,6 +161,7 @@ async function iniciar() {
         '│ ▸ *' + PREFIJO + 'nombre <texto>* — cambiar el nombre\n' +
         '│ ▸ *' + PREFIJO + 'estado <texto>* — cambiar el info/estado\n' +
         '│ ▸ *' + PREFIJO + 'msj <número> <texto>* — enviar mensaje\n' +
+        '│ ▸ *' + PREFIJO + 'llamada <número>* — llamar (experimental)\n' +
         '│ ▸ *' + PREFIJO + 'block <número>* — bloquear un número\n' +
         '│ ▸ *' + PREFIJO + 'unblock <número>* — desbloquear\n' +
         '╰───────────────';
@@ -268,6 +269,37 @@ async function iniciar() {
       } catch (e) {
         console.error(e);
         await sock.sendMessage(jid, { text: '❌ No pude ' + (esBloqueo ? 'bloquear' : 'desbloquear') + ': ' + (e?.message || 'error') }, { quoted: m });
+      }
+      return;
+    }
+
+    // .llamada <numero> (SOLO owner) -> intenta ofrecer una llamada (EXPERIMENTAL)
+    if (cmd === PREFIJO + 'llamada' || cmd.startsWith(PREFIJO + 'llamada ')) {
+      if (!esOwner(remitente)) {
+        await sock.sendMessage(jid, { text: '🚫 Solo el owner puede usar este comando.' }, { quoted: m });
+        return;
+      }
+      const numeroLlam = soloDigitos(texto.trim().slice((PREFIJO + 'llamada').length).trim());
+      if (!numeroLlam) {
+        await sock.sendMessage(jid, { text: 'Formato: *' + PREFIJO + 'llamada 52XXXXXXXXXX* 📞' }, { quoted: m });
+        return;
+      }
+      try {
+        if (typeof sock.offerCall !== 'function') {
+          await sock.sendMessage(jid, { text: '❌ Esta versión no soporta llamadas (offerCall no disponible).' }, { quoted: m });
+          return;
+        }
+        const res = await sock.onWhatsApp(numeroLlam);
+        const info = res && res[0];
+        if (!info || !info.exists) {
+          await sock.sendMessage(jid, { text: '❌ Ese número no está en WhatsApp: ' + numeroLlam }, { quoted: m });
+          return;
+        }
+        await sock.offerCall(info.jid);
+        await sock.sendMessage(jid, { text: '📞 Intenté llamar a ' + numeroLlam + ' (experimental, puede no conectar).' }, { quoted: m });
+      } catch (e) {
+        console.error(e);
+        await sock.sendMessage(jid, { text: '❌ No pude llamar: ' + (e?.message || 'error') }, { quoted: m });
       }
       return;
     }
