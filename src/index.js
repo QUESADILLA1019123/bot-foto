@@ -261,8 +261,8 @@ async function iniciar() {
           return;
         }
         console.log('🔎 block onWhatsApp ->', JSON.stringify(res));
-        // Para bloquear, WhatsApp espera el jid tipo numero@s.whatsapp.net
-        const jidBloq = numeroBloq + '@s.whatsapp.net';
+        // WhatsApp nuevo bloquea por el LID; si no hay, usa el jid que devolvió onWhatsApp
+        const jidBloq = info.lid || info.jid;
         await sock.updateBlockStatus(jidBloq, esBloqueo ? 'block' : 'unblock');
         await sock.sendMessage(
           jid,
